@@ -1,0 +1,71 @@
+name: sensores-poc
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: sensores-clickhouse
+    environment:
+      CLICKHOUSE_DB: sensores
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-sensores}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-sensores123}
+      TZ: UTC
+    ports:
+      - "8123:8123"   # HTTP (para consultas manuales); Grafana usa el puerto nativo 9000 dentro de la red
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/config/timezone.xml:/etc/clickhouse-server/config.d/timezone.xml:ro
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user $$CLICKHOUSE_USER --password $$CLICKHOUSE_PASSWORD -q 'EXISTS TABLE sensores.lecturas' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: sensores-api
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      TZ: UTC
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DB: sensores
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-sensores}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-sensores123}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    container_name: sensores-grafana
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      TZ: UTC
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_PLUGINS_PREINSTALL: grafana-clickhouse-datasource
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/sensores.json
+      # Usadas dentro de provisioning/datasources/clickhouse.yml
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-sensores}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-sensores123}
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+
+volumes:
+  clickhouse-data:
+  grafana-data:

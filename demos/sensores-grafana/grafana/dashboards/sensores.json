@@ -1,0 +1,129 @@
+{
+  "uid": "sensores-temperatura",
+  "title": "Sensores de temperatura",
+  "timezone": "utc",
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "cliente",
+        "label": "Cliente",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT concat(nombre, ' (', toString(id_cliente), ')') FROM sensores.clientes FINAL ORDER BY id_cliente",
+        "definition": "SELECT concat(nombre, ' (', toString(id_cliente), ')') FROM sensores.clientes FINAL ORDER BY id_cliente",
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false,
+        "regex": "/^(?<text>.*) \\((?<value>\\d+)\\)$/"
+      },
+      {
+        "name": "sensor",
+        "label": "Sensor",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT sensor FROM sensores.sensores WHERE id_cliente = ${cliente} ORDER BY sensor",
+        "definition": "SELECT DISTINCT sensor FROM sensores.sensores WHERE id_cliente = ${cliente} ORDER BY sensor",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Temperatura (°C) por sensor",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "queryType": "timeseries",
+          "format": 0,
+          "rawSql": "SELECT $__timeInterval(medido_en) AS time, sensor, avg(temperatura_c) AS temperatura\nFROM sensores.lecturas\nWHERE $__timeFilter(medido_en)\n  AND id_cliente = ${cliente}\n  AND has([${sensor:singlequote}], sensor)\nGROUP BY time, sensor\nORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Última lectura por sensor",
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "queryType": "table",
+          "format": 1,
+          "rawSql": "SELECT\n  sensor AS Sensor,\n  max(medido_en) AS `Última lectura (UTC)`,\n  round(argMax(temperatura_c, medido_en), 2) AS `°C`,\n  round(argMax(temperatura_f, medido_en), 2) AS `°F`,\n  count() AS Lecturas\nFROM sensores.lecturas\nWHERE id_cliente = ${cliente}\n  AND has([${sensor:singlequote}], sensor)\nGROUP BY sensor\nORDER BY sensor"
+        }
+      ]
+    }
+  ]
+}

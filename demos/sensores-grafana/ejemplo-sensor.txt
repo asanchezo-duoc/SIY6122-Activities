@@ -1,0 +1,22 @@
+EJEMPLO: ENVIAR LECTURA DEL SENSOR sensor-pasillo-1 DEL CLIENTE 1001
+====================================================================
+
+Endpoint: POST http://localhost:3000/lecturas
+Header:   Content-Type: application/json
+
+JSON:
+
+{
+  "id_cliente": 1001,
+  "sensor": "sensor-pasillo-1",
+  "temperatura_c": 22.5,
+  "temperatura_f": 72.5
+}
+
+Curl:
+
+curl -X POST http://localhost:3000/lecturas -H "Content-Type: application/json" -d '{"id_cliente": 1001, "sensor": "sensor-pasillo-1", "temperatura_c": 22.5, "temperatura_f": 72.5}'
+
+Respuesta esperada (HTTP 201):
+
+{"id_cliente":1001,"sensor":"sensor-pasillo-1","sensor_nuevo":false,"temperatura_c":22.5,"temperatura_f":72.5,"medido_en":"...","recibido_en":"..."}

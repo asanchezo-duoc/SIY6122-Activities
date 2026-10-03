@@ -1,0 +1,4 @@
+<!-- Fuerza la zona horaria del servidor a UTC -->
+<clickhouse>
+    <timezone>UTC</timezone>
+</clickhouse>
